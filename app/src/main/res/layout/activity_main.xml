@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
@@ -21,17 +21,266 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="MediTrack"
-            android:textSize="24sp"
+            android:textSize="28sp"
             android:textStyle="bold"
             android:gravity="center"
+            android:layout_marginBottom="24dp"/>
+
+        <!-- Health Parameters Title -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Health Parameters"
+            android:textSize="18sp"
+            android:textStyle="bold"
             android:layout_marginBottom="16dp"/>
 
-        <!-- Health Parameters Card -->
+        <!-- Temperature Card -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/temperatureCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="4dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="16dp">
+
+                <ImageView
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:src="@android:drawable/ic_dialog_info"
+                    android:layout_gravity="center_vertical"
+                    android:contentDescription="Temperature icon"
+                    app:tint="#FF9800" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Body Temperature"
+                        android:textStyle="bold"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:id="@+id/textViewTemperature"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="--°C"
+                        android:textSize="24sp"
+                        android:layout_marginTop="4dp" />
+
+                    <TextView
+                        android:id="@+id/textViewTemperatureStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Normal"
+                        android:textColor="#4CAF50"
+                        android:layout_marginTop="4dp" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/buttonTempHistory"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="History"
+                    android:layout_gravity="center_vertical"
+                    style="@style/Widget.MaterialComponents.Button.TextButton" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Heart Rate Card -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/heartRateCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="4dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="16dp">
+
+                <ImageView
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:src="@android:drawable/ic_menu_compass"
+                    android:layout_gravity="center_vertical"
+                    android:contentDescription="Heart Rate icon"
+                    app:tint="#E91E63" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Heart Rate"
+                        android:textStyle="bold"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:id="@+id/textViewHeartRate"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="-- BPM"
+                        android:textSize="24sp"
+                        android:layout_marginTop="4dp" />
+
+                    <TextView
+                        android:id="@+id/textViewHeartRateStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Normal"
+                        android:textColor="#4CAF50"
+                        android:layout_marginTop="4dp" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/buttonHeartRateHistory"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="History"
+                    android:layout_gravity="center_vertical"
+                    style="@style/Widget.MaterialComponents.Button.TextButton" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- SpO2 Card -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/spo2Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="4dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="16dp">
+
+                <ImageView
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:src="@android:drawable/ic_menu_add"
+                    android:layout_gravity="center_vertical"
+                    android:contentDescription="SpO2 icon"
+                    app:tint="#2196F3" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Blood Oxygen (SpO2)"
+                        android:textStyle="bold"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:id="@+id/textViewSpO2"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="--%"
+                        android:textSize="24sp"
+                        android:layout_marginTop="4dp" />
+
+                    <TextView
+                        android:id="@+id/textViewSpO2Status"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Normal"
+                        android:textColor="#4CAF50"
+                        android:layout_marginTop="4dp" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/buttonSpO2History"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="History"
+                    android:layout_gravity="center_vertical"
+                    style="@style/Widget.MaterialComponents.Button.TextButton" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Device Status Card -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/deviceStatusCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="4dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="16dp">
+
+                <ImageView
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:src="@android:drawable/ic_lock_idle_charging"
+                    android:layout_gravity="center_vertical"
+                    android:contentDescription="Device Status icon"
+                    app:tint="#673AB7" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Device Status"
+                        android:textStyle="bold"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:id="@+id/textViewDeviceStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Unknown"
+                        android:textSize="20sp"
+                        android:layout_marginTop="4dp" />
+                </LinearLayout>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Location Card with Google Maps -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_margin="8dp"
-            app:cardCornerRadius="8dp"
+            android:layout_marginBottom="24dp"
+            app:cardCornerRadius="12dp"
             app:cardElevation="4dp">
 
             <LinearLayout
@@ -43,42 +292,10 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Health Parameters"
+                    android:text="Patient Location"
                     android:textSize="18sp"
                     android:textStyle="bold"
-                    android:layout_marginBottom="8dp"/>
-
-                <TextView
-                    android:id="@+id/textViewTemperature"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Temperature: --°C"
-                    android:textSize="16sp"
-                    android:layout_marginTop="8dp"/>
-
-                <TextView
-                    android:id="@+id/textViewHeartRate"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Heart Rate: -- BPM"
-                    android:textSize="16sp"
-                    android:layout_marginTop="8dp"/>
-
-                <TextView
-                    android:id="@+id/textViewSpO2"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="SpO2: --%"
-                    android:textSize="16sp"
-                    android:layout_marginTop="8dp"/>
-
-                <TextView
-                    android:id="@+id/textViewDeviceStatus"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Device Status: Unknown"
-                    android:textSize="16sp"
-                    android:layout_marginTop="8dp"/>
+                    android:layout_marginBottom="12dp"/>
 
                 <TextView
                     android:id="@+id/textViewLocation"
@@ -86,7 +303,19 @@
                     android:layout_height="wrap_content"
                     android:text="Location: Unknown"
                     android:textSize="16sp"
-                    android:layout_marginTop="8dp"/>
+                    android:layout_marginBottom="8dp"/>
+
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="200dp">
+
+                    <androidx.fragment.app.FragmentContainerView
+                        android:id="@+id/mapFragment"
+                        android:name="com.google.android.gms.maps.SupportMapFragment"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:contentDescription="Map showing patient location" />
+                </FrameLayout>
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
@@ -94,8 +323,8 @@
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_margin="8dp"
-            app:cardCornerRadius="8dp"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="12dp"
             app:cardElevation="4dp">
 
             <LinearLayout
@@ -110,67 +339,52 @@
                     android:text="Medication Schedule"
                     android:textSize="18sp"
                     android:textStyle="bold"
-                    android:layout_marginBottom="8dp"/>
+                    android:layout_marginBottom="12dp"/>
 
-                <!-- In a real app, this would be a RecyclerView with medication schedule items -->
-                <TextView
+                <!-- Scheduled Medications List -->
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recyclerViewMedications"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Set medication reminders for the patient"
-                    android:textSize="16sp"/>
+                    android:layout_marginBottom="12dp"
+                    android:minHeight="50dp"
+                    android:background="#F5F5F5"
+                    android:contentDescription="List of scheduled medications"/>
+
+                <TextView
+                    android:id="@+id/textViewNoMedications"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="No medications scheduled"
+                    android:gravity="center"
+                    android:padding="16dp"
+                    android:textColor="#757575"
+                    android:visibility="visible"/>
 
                 <Button
                     android:id="@+id/buttonSetMedication"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Schedule Medication"
+                    android:text="Schedule New Medication"
                     android:layout_marginTop="8dp"/>
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-
-        <!-- Settings Card -->
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_margin="8dp"
-            app:cardCornerRadius="8dp"
-            app:cardElevation="4dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Alert Settings"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="8dp"/>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Configure alert thresholds for vitals"
-                    android:textSize="16sp"/>
 
                 <Button
-                    android:id="@+id/buttonSetThresholds"
+                    android:id="@+id/buttonSendAlert"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Set Alert Thresholds"
+                    android:text="Send Emergency Alert"
+                    android:backgroundTint="#F44336"
+                    android:textColor="#FFFFFF"
                     android:layout_marginTop="8dp"/>
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <!-- Testing Card -->
+        <!-- Connection Testing Card -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_margin="8dp"
-            app:cardCornerRadius="8dp"
+            app:cardCornerRadius="12dp"
             app:cardElevation="4dp">
 
             <LinearLayout
@@ -203,4 +417,4 @@
         </androidx.cardview.widget.CardView>
 
     </LinearLayout>
-</ScrollView>
+</androidx.core.widget.NestedScrollView>

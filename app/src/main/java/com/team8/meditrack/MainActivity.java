@@ -1,14 +1,28 @@
 package com.team8.meditrack;
 
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import android.app.AlertDialog;
+import androidx.cardview.widget.CardView;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+import android.app.Dialog;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Log;
-import android.widget.TextView;
-import android.graphics.Color;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
+
+import com.google.android.gms.maps.CameraUpdateFactory;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.MarkerOptions;
 
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallbackExtended;
@@ -16,18 +30,51 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-public class MainActivity extends AppCompatActivity {
+import java.util.ArrayList;
+import java.util.List;
+
+public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, MedicationAdapter.OnMedicationClickListener {
 
     private static final String TAG = "MainActivity";
-    private MqttHandler mqttHandler;
-    private String brokerIp = "192.168.113.182"; // Default IP, should be configurable
 
-    // UI elements
+    // MQTT
+    private MqttHandler mqttHandler;
+    private String brokerIp = "192.168.113.182"; // Default IP
+
+    // UI elements - Health parameters
     private TextView tempTextView;
     private TextView heartRateTextView;
     private TextView spo2TextView;
     private TextView deviceStatusTextView;
     private TextView locationTextView;
+    private TextView tempStatusTextView;
+    private TextView heartRateStatusTextView;
+    private TextView spo2StatusTextView;
+
+    // UI elements - Cards
+    private CardView temperatureCard;
+    private CardView heartRateCard;
+    private CardView spo2Card;
+
+    // UI elements - History buttons
+    private Button buttonTempHistory;
+    private Button buttonHeartRateHistory;
+    private Button buttonSpO2History;
+
+    // UI elements - Medication
+    private RecyclerView recyclerViewMedications;
+    private TextView textViewNoMedications;
+    private Button buttonSetMedication;
+    private Button buttonSendAlert;
+
+    // Database
+    private AppDatabase database;
+    private MedicationAdapter medicationAdapter;
+
+    // Google Maps
+    private GoogleMap googleMap;
+    private LatLng currentLocation;
+    private boolean isMapReady = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,28 +90,21 @@ public class MainActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_main);
 
+        // Initialize database
+        database = AppDatabase.getInstance(this);
+
         // Initialize UI elements
-        tempTextView = findViewById(R.id.textViewTemperature);
-        heartRateTextView = findViewById(R.id.textViewHeartRate);
-        spo2TextView = findViewById(R.id.textViewSpO2);
-        deviceStatusTextView = findViewById(R.id.textViewDeviceStatus);
-        locationTextView = findViewById(R.id.textViewLocation);
+        initializeUI();
 
-        // Set up button click listeners
-        findViewById(R.id.buttonSetMedication).setOnClickListener(v -> {
-            // Show a dialog to enter medication details
-            showMedicationDialog();
-        });
+        // Initialize Google Maps
+        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.mapFragment);
+        if (mapFragment != null) {
+            mapFragment.getMapAsync(this);
+        }
 
-        findViewById(R.id.buttonSetThresholds).setOnClickListener(v -> {
-            // Show a dialog to configure thresholds
-            showThresholdsDialog();
-        });
-
-        findViewById(R.id.buttonTestConnection).setOnClickListener(v -> {
-            // Show a dialog to enter broker IP
-            showBrokerIpDialog();
-        });
+        // Load medications
+        loadMedications();
 
         // Auto-connect to broker when app starts
         new android.os.Handler().postDelayed(() -> {
@@ -72,6 +112,65 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(MainActivity.this, "Auto-connecting to broker...", Toast.LENGTH_SHORT).show();
             startMqttConnection();
         }, 1000);
+    }
+
+    private void initializeUI() {
+        // Initialize health parameter text views
+        tempTextView = findViewById(R.id.textViewTemperature);
+        heartRateTextView = findViewById(R.id.textViewHeartRate);
+        spo2TextView = findViewById(R.id.textViewSpO2);
+        deviceStatusTextView = findViewById(R.id.textViewDeviceStatus);
+        locationTextView = findViewById(R.id.textViewLocation);
+        tempStatusTextView = findViewById(R.id.textViewTemperatureStatus);
+        heartRateStatusTextView = findViewById(R.id.textViewHeartRateStatus);
+        spo2StatusTextView = findViewById(R.id.textViewSpO2Status);
+
+        // Initialize cards
+        temperatureCard = findViewById(R.id.temperatureCard);
+        heartRateCard = findViewById(R.id.heartRateCard);
+        spo2Card = findViewById(R.id.spo2Card);
+
+        // Initialize history buttons
+        buttonTempHistory = findViewById(R.id.buttonTempHistory);
+        buttonHeartRateHistory = findViewById(R.id.buttonHeartRateHistory);
+        buttonSpO2History = findViewById(R.id.buttonSpO2History);
+
+        // Initialize medication components
+        recyclerViewMedications = findViewById(R.id.recyclerViewMedications);
+        textViewNoMedications = findViewById(R.id.textViewNoMedications);
+        buttonSetMedication = findViewById(R.id.buttonSetMedication);
+        buttonSendAlert = findViewById(R.id.buttonSendAlert);
+
+        // Set up RecyclerView
+        recyclerViewMedications.setLayoutManager(new LinearLayoutManager(this));
+        medicationAdapter = new MedicationAdapter(new ArrayList<>(), this);
+        recyclerViewMedications.setAdapter(medicationAdapter);
+
+        // Set up button click listeners
+        buttonSetMedication.setOnClickListener(v -> showMedicationDialog());
+
+        findViewById(R.id.buttonTestConnection).setOnClickListener(v -> showBrokerIpDialog());
+
+        buttonSendAlert.setOnClickListener(v -> sendEmergencyAlert());
+
+        // Set up history button click listeners
+        buttonTempHistory.setOnClickListener(v -> showParameterHistory("temperature", "Temperature History"));
+        buttonHeartRateHistory.setOnClickListener(v -> showParameterHistory("heart_rate", "Heart Rate History"));
+        buttonSpO2History.setOnClickListener(v -> showParameterHistory("spo2", "SpO2 History"));
+    }
+
+    private void loadMedications() {
+        List<Medication> medications = database.medicationDao().getAllMedications();
+        medicationAdapter.updateData(medications);
+
+        // Show/hide "no medications" message
+        if (medications.isEmpty()) {
+            textViewNoMedications.setVisibility(View.VISIBLE);
+            recyclerViewMedications.setVisibility(View.GONE);
+        } else {
+            textViewNoMedications.setVisibility(View.GONE);
+            recyclerViewMedications.setVisibility(View.VISIBLE);
+        }
     }
 
     private void startMqttConnection() {
@@ -149,25 +248,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-
-    /**
-     * Checks if a string is valid JSON
-     * @param str String to check
-     * @return true if valid JSON, false otherwise
-     */
-    private boolean isValidJson(String str) {
-        try {
-            new JSONObject(str);
-            return true;
-        } catch (JSONException ex) {
-            try {
-                new org.json.JSONArray(str);
-                return true;
-            } catch (JSONException ex1) {
-                return false;
-            }
-        }
-    }
     private void processMessage(String topic, String payload) {
         Log.d(TAG, "Processing message on topic: " + topic + " with payload: " + payload);
 
@@ -198,6 +278,20 @@ public class MainActivity extends AppCompatActivity {
             }
         } catch (Exception e) {
             Log.e(TAG, "Error processing message: " + e.getMessage(), e);
+        }
+    }
+
+    private boolean isValidJson(String str) {
+        try {
+            new JSONObject(str);
+            return true;
+        } catch (JSONException ex) {
+            try {
+                new org.json.JSONArray(str);
+                return true;
+            } catch (JSONException ex1) {
+                return false;
+            }
         }
     }
 
@@ -256,6 +350,9 @@ public class MainActivity extends AppCompatActivity {
 
             // Add another delay for device status
             new android.os.Handler().postDelayed(this::publishTestDeviceStatus, 3000);
+
+            // Add another delay for location
+            new android.os.Handler().postDelayed(this::publishTestLocation, 4000);
         } catch (Exception e) {
             Log.e(TAG, "Error in test message sequence", e);
             Toast.makeText(MainActivity.this, "Error in test sequence: " + e.getMessage(), Toast.LENGTH_SHORT).show();
@@ -294,6 +391,33 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "Test message published to meditrack/device_status: " + testMessage);
     }
 
+    private void publishTestLocation() {
+        // Create a simple test message for location
+        String testMessage = "{\"lat\": 17.4431, \"lng\": 78.3496}";  // Example: Hyderabad, India
+        mqttHandler.publishMessage("meditrack/location", testMessage);
+        Toast.makeText(MainActivity.this, "Test location published", Toast.LENGTH_SHORT).show();
+        Log.d(TAG, "Test message published to meditrack/location: " + testMessage);
+    }
+
+    private void sendEmergencyAlert() {
+        if (mqttHandler == null || !mqttHandler.isConnected()) {
+            Toast.makeText(this, "Please connect to MQTT broker first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        try {
+            // Create an emergency alert message
+            String alertMessage = "{\"alert\": true, \"message\": \"Emergency alert from caregiver app!\"}";
+            mqttHandler.publishMessage("meditrack/emergency_alert", alertMessage);
+
+            Toast.makeText(this, "Emergency alert sent!", Toast.LENGTH_LONG).show();
+            Log.d(TAG, "Emergency alert sent: " + alertMessage);
+        } catch (Exception e) {
+            Log.e(TAG, "Error sending emergency alert", e);
+            Toast.makeText(this, "Failed to send alert: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
     private void showMedicationDialog() {
         if (mqttHandler == null || !mqttHandler.isConnected()) {
             Toast.makeText(this, "Please connect to MQTT broker first", Toast.LENGTH_SHORT).show();
@@ -311,12 +435,21 @@ public class MainActivity extends AppCompatActivity {
         builder.setView(view);
 
         builder.setPositiveButton("Schedule", (dialog, which) -> {
-            String medication = medicationEditText.getText().toString().trim();
+            String medicationName = medicationEditText.getText().toString().trim();
             String time = timeEditText.getText().toString().trim();
 
-            if (!medication.isEmpty() && !time.isEmpty()) {
-                mqttHandler.scheduleMedication(medication, time);
-                Toast.makeText(MainActivity.this, "Medication scheduled: " + medication + " at " + time, Toast.LENGTH_SHORT).show();
+            if (!medicationName.isEmpty() && !time.isEmpty()) {
+                // Send to MQTT broker
+                mqttHandler.scheduleMedication(medicationName, time);
+
+                // Save to local database
+                Medication medication = new Medication(medicationName, time, System.currentTimeMillis());
+                database.medicationDao().insert(medication);
+
+                // Refresh the medication list
+                loadMedications();
+
+                Toast.makeText(MainActivity.this, "Medication scheduled: " + medicationName + " at " + time, Toast.LENGTH_SHORT).show();
             } else {
                 Toast.makeText(MainActivity.this, "Please enter both medication name and time", Toast.LENGTH_SHORT).show();
             }
@@ -327,50 +460,31 @@ public class MainActivity extends AppCompatActivity {
         builder.show();
     }
 
-    private void showThresholdsDialog() {
-        if (mqttHandler == null || !mqttHandler.isConnected()) {
-            Toast.makeText(this, "Please connect to MQTT broker first", Toast.LENGTH_SHORT).show();
+    private void showParameterHistory(String parameterType, String title) {
+        // Get the history data from database
+        List<HealthParameter> historyData = database.healthParameterDao().getLatestByType(parameterType);
+
+        if (historyData.isEmpty()) {
+            Toast.makeText(this, "No history data available", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Set Alert Thresholds");
+        // Create and show dialog
+        Dialog dialog = new Dialog(this);
+        dialog.setContentView(R.layout.dialog_parameter_history);
 
-        // Inflate the dialog layout
-        View view = getLayoutInflater().inflate(R.layout.dialog_thresholds, null);
-        final EditText minTempEditText = view.findViewById(R.id.editTextMinTemp);
-        final EditText maxTempEditText = view.findViewById(R.id.editTextMaxTemp);
-        final EditText minHrEditText = view.findViewById(R.id.editTextMinHeartRate);
-        final EditText maxHrEditText = view.findViewById(R.id.editTextMaxHeartRate);
-        final EditText minSpo2EditText = view.findViewById(R.id.editTextMinSpO2);
+        // Set dialog title
+        TextView textViewTitle = dialog.findViewById(R.id.textViewHistoryTitle);
+        textViewTitle.setText(title);
 
-        // Set default values
-        minTempEditText.setText("35.0");
-        maxTempEditText.setText("38.0");
-        minHrEditText.setText("60");
-        maxHrEditText.setText("100");
-        minSpo2EditText.setText("90");
+        // Set up RecyclerView
+        RecyclerView recyclerView = dialog.findViewById(R.id.recyclerViewHistory);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-        builder.setView(view);
+        ParameterHistoryAdapter adapter = new ParameterHistoryAdapter(historyData, parameterType);
+        recyclerView.setAdapter(adapter);
 
-        builder.setPositiveButton("Save", (dialog, which) -> {
-            try {
-                double minTemp = Double.parseDouble(minTempEditText.getText().toString());
-                double maxTemp = Double.parseDouble(maxTempEditText.getText().toString());
-                int minHr = Integer.parseInt(minHrEditText.getText().toString());
-                int maxHr = Integer.parseInt(maxHrEditText.getText().toString());
-                int minSpo2 = Integer.parseInt(minSpo2EditText.getText().toString());
-
-                mqttHandler.setAlertThresholds(minTemp, maxTemp, minHr, maxHr, minSpo2);
-                Toast.makeText(MainActivity.this, "Alert thresholds updated", Toast.LENGTH_SHORT).show();
-            } catch (NumberFormatException e) {
-                Toast.makeText(MainActivity.this, "Please enter valid numbers", Toast.LENGTH_SHORT).show();
-            }
-        });
-
-        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
-
-        builder.show();
+        dialog.show();
     }
 
     // Methods to update UI with received data
@@ -388,20 +502,20 @@ public class MainActivity extends AppCompatActivity {
                             // Try to parse the payload as a number directly
                             try {
                                 double temp = Double.parseDouble(payload.trim());
-                                tempTextView.setText(String.format("Temperature: %.1f°C", temp));
+                                tempTextView.setText(String.format("%.1f°C", temp));
 
-                                // Check for abnormal values (using default thresholds)
-                                if (temp < 35.0 || temp > 38.0) {
-                                    tempTextView.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
-                                } else {
-                                    tempTextView.setTextColor(getResources().getColor(android.R.color.black));
-                                }
-                                Log.d(TAG, "Temperature TextView updated with direct number");
+                                // Save to database
+                                saveHealthParameter("temperature", temp);
+
+                                // Update status and card color
+                                updateTemperatureStatus(temp);
+
                             } catch (NumberFormatException nfe) {
                                 // If not a number, just display as text
-                                tempTextView.setText("Temperature: " + payload);
-                                tempTextView.setTextColor(getResources().getColor(android.R.color.holo_blue_dark));
-                                Log.d(TAG, "Temperature TextView updated with non-JSON text");
+                                tempTextView.setText(payload);
+                                tempStatusTextView.setText("Unknown");
+                                tempStatusTextView.setTextColor(Color.BLUE);
+                                temperatureCard.setCardBackgroundColor(Color.WHITE);
                             }
                         } catch (Exception e) {
                             Log.e(TAG, "Error updating temperature TextView with text", e);
@@ -417,22 +531,19 @@ public class MainActivity extends AppCompatActivity {
 
             Log.d(TAG, "Temperature parsed: " + temperature);
 
+            // Save to database
+            saveHealthParameter("temperature", temperature);
+
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     try {
-                        Log.d(TAG, "Updating temperature TextView to: " + temperature);
                         // Update temperature text
-                        tempTextView.setText(String.format("Temperature: %.1f°C", temperature));
+                        tempTextView.setText(String.format("%.1f°C", temperature));
 
-                        // Check for abnormal values (using default thresholds)
-                        if (temperature < 35.0 || temperature > 38.0) {
-                            tempTextView.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
-                        } else {
-                            tempTextView.setTextColor(getResources().getColor(android.R.color.black));
-                        }
+                        // Update status and card color
+                        updateTemperatureStatus(temperature);
 
-                        Log.d(TAG, "Temperature TextView updated successfully");
                     } catch (Exception e) {
                         Log.e(TAG, "Error updating temperature TextView", e);
                     }
@@ -446,9 +557,10 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void run() {
                     try {
-                        tempTextView.setText("Temp: Invalid format");
-                        tempTextView.setTextColor(getResources().getColor(android.R.color.holo_orange_dark));
-                        Log.d(TAG, "Temperature updated to show error");
+                        tempTextView.setText("Invalid format");
+                        tempStatusTextView.setText("Error");
+                        tempStatusTextView.setTextColor(Color.RED);
+                        temperatureCard.setCardBackgroundColor(Color.parseColor("#FFCCCC"));
                     } catch (Exception e) {
                         Log.e(TAG, "Error updating temperature for error condition", e);
                     }
@@ -456,6 +568,41 @@ public class MainActivity extends AppCompatActivity {
             });
         } catch (Exception e) {
             Log.e(TAG, "Unexpected error in updateTemperature", e);
+        }
+    }
+
+    private void updateTemperatureStatus(double temperature) {
+        // Normal range: 36.1°C to 37.2°C
+        if (temperature < 35.0) {
+            // Hypothermia
+            tempStatusTextView.setText("Low - Hypothermia");
+            tempStatusTextView.setTextColor(Color.BLUE);
+            temperatureCard.setCardBackgroundColor(Color.parseColor("#E1F5FE"));  // Light blue
+        } else if (temperature <= 36.0) {
+            // Slightly low
+            tempStatusTextView.setText("Slightly Low");
+            tempStatusTextView.setTextColor(Color.parseColor("#2196F3"));  // Blue
+            temperatureCard.setCardBackgroundColor(Color.parseColor("#E3F2FD"));  // Very light blue
+        } else if (temperature <= 37.2) {
+            // Normal
+            tempStatusTextView.setText("Normal");
+            tempStatusTextView.setTextColor(Color.parseColor("#4CAF50"));  // Green
+            temperatureCard.setCardBackgroundColor(Color.WHITE);
+        } else if (temperature <= 38.0) {
+            // Slightly elevated
+            tempStatusTextView.setText("Slightly Elevated");
+            tempStatusTextView.setTextColor(Color.parseColor("#FF9800"));  // Orange
+            temperatureCard.setCardBackgroundColor(Color.parseColor("#FFF3E0"));  // Very light orange
+        } else if (temperature <= 39.0) {
+            // Fever
+            tempStatusTextView.setText("Fever");
+            tempStatusTextView.setTextColor(Color.parseColor("#F44336"));  // Red
+            temperatureCard.setCardBackgroundColor(Color.parseColor("#FFEBEE"));  // Very light red
+        } else {
+            // High fever
+            tempStatusTextView.setText("High Fever");
+            tempStatusTextView.setTextColor(Color.parseColor("#D50000"));  // Dark red
+            temperatureCard.setCardBackgroundColor(Color.parseColor("#FFCDD2"));  // Light red
         }
     }
 
@@ -473,20 +620,20 @@ public class MainActivity extends AppCompatActivity {
                             // Try to parse the payload as a number directly
                             try {
                                 int hr = Integer.parseInt(payload.trim());
-                                heartRateTextView.setText(String.format("Heart Rate: %d BPM", hr));
+                                heartRateTextView.setText(String.format("%d BPM", hr));
 
-                                // Check for abnormal values (using default thresholds)
-                                if (hr < 60 || hr > 100) {
-                                    heartRateTextView.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
-                                } else {
-                                    heartRateTextView.setTextColor(getResources().getColor(android.R.color.black));
-                                }
-                                Log.d(TAG, "Heart rate TextView updated with direct number");
+                                // Save to database
+                                saveHealthParameter("heart_rate", hr);
+
+                                // Update status and card color
+                                updateHeartRateStatus(hr);
+
                             } catch (NumberFormatException nfe) {
                                 // If not a number, just display as text
-                                heartRateTextView.setText("Heart Rate: " + payload);
-                                heartRateTextView.setTextColor(getResources().getColor(android.R.color.holo_blue_dark));
-                                Log.d(TAG, "Heart rate TextView updated with non-JSON text");
+                                heartRateTextView.setText(payload);
+                                heartRateStatusTextView.setText("Unknown");
+                                heartRateStatusTextView.setTextColor(Color.BLUE);
+                                heartRateCard.setCardBackgroundColor(Color.WHITE);
                             }
                         } catch (Exception e) {
                             Log.e(TAG, "Error updating heart rate TextView with text", e);
@@ -502,22 +649,19 @@ public class MainActivity extends AppCompatActivity {
 
             Log.d(TAG, "Heart rate parsed: " + heartRate);
 
+            // Save to database
+            saveHealthParameter("heart_rate", heartRate);
+
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     try {
-                        Log.d(TAG, "Updating heart rate TextView to: " + heartRate);
                         // Update heart rate text
-                        heartRateTextView.setText(String.format("Heart Rate: %d BPM", heartRate));
+                        heartRateTextView.setText(String.format("%d BPM", heartRate));
 
-                        // Check for abnormal values (using default thresholds)
-                        if (heartRate < 60 || heartRate > 100) {
-                            heartRateTextView.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
-                        } else {
-                            heartRateTextView.setTextColor(getResources().getColor(android.R.color.black));
-                        }
+                        // Update status and card color
+                        updateHeartRateStatus(heartRate);
 
-                        Log.d(TAG, "Heart rate TextView updated successfully");
                     } catch (Exception e) {
                         Log.e(TAG, "Error updating heart rate TextView", e);
                     }
@@ -531,9 +675,10 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void run() {
                     try {
-                        heartRateTextView.setText("HR: Invalid format");
-                        heartRateTextView.setTextColor(getResources().getColor(android.R.color.holo_orange_dark));
-                        Log.d(TAG, "Heart rate updated to show error");
+                        heartRateTextView.setText("Invalid format");
+                        heartRateStatusTextView.setText("Error");
+                        heartRateStatusTextView.setTextColor(Color.RED);
+                        heartRateCard.setCardBackgroundColor(Color.parseColor("#FFCCCC"));
                     } catch (Exception e) {
                         Log.e(TAG, "Error updating heart rate for error condition", e);
                     }
@@ -544,7 +689,36 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // Replace the existing updateSpO2 method with this updated version
+    private void updateHeartRateStatus(int heartRate) {
+        // Normal adult resting heart rate: 60-100 BPM
+        if (heartRate < 50) {
+            // Severe bradycardia
+            heartRateStatusTextView.setText("Bradycardia - Very Low");
+            heartRateStatusTextView.setTextColor(Color.parseColor("#9C27B0"));  // Purple
+            heartRateCard.setCardBackgroundColor(Color.parseColor("#F3E5F5"));  // Light purple
+        } else if (heartRate < 60) {
+            // Mild bradycardia
+            heartRateStatusTextView.setText("Bradycardia");
+            heartRateStatusTextView.setTextColor(Color.parseColor("#673AB7"));  // Deep purple
+            heartRateCard.setCardBackgroundColor(Color.parseColor("#EDE7F6"));  // Very light purple
+        } else if (heartRate <= 100) {
+            // Normal
+            heartRateStatusTextView.setText("Normal");
+            heartRateStatusTextView.setTextColor(Color.parseColor("#4CAF50"));  // Green
+            heartRateCard.setCardBackgroundColor(Color.WHITE);
+        } else if (heartRate <= 120) {
+            // Mild tachycardia
+            heartRateStatusTextView.setText("Mild Tachycardia");
+            heartRateStatusTextView.setTextColor(Color.parseColor("#FF9800"));  // Orange
+            heartRateCard.setCardBackgroundColor(Color.parseColor("#FFF3E0"));  // Very light orange
+        } else {
+            // Tachycardia
+            heartRateStatusTextView.setText("Tachycardia - High");
+            heartRateStatusTextView.setTextColor(Color.parseColor("#F44336"));  // Red
+            heartRateCard.setCardBackgroundColor(Color.parseColor("#FFEBEE"));  // Very light red
+        }
+    }
+
     private void updateSpO2(String payload) {
         try {
             Log.d(TAG, "updateSpO2 called with payload: " + payload);
@@ -559,20 +733,20 @@ public class MainActivity extends AppCompatActivity {
                             // Try to parse the payload as a number directly
                             try {
                                 int spo2 = Integer.parseInt(payload.trim());
-                                spo2TextView.setText(String.format("SpO2: %d%%", spo2));
+                                spo2TextView.setText(String.format("%d%%", spo2));
 
-                                // Check for abnormal values (using default threshold)
-                                if (spo2 < 90) {
-                                    spo2TextView.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
-                                } else {
-                                    spo2TextView.setTextColor(getResources().getColor(android.R.color.black));
-                                }
-                                Log.d(TAG, "SpO2 TextView updated with direct number");
+                                // Save to database
+                                saveHealthParameter("spo2", spo2);
+
+                                // Update status and card color
+                                updateSpO2Status(spo2);
+
                             } catch (NumberFormatException nfe) {
                                 // If not a number, just display as text
-                                spo2TextView.setText("SpO2: " + payload);
-                                spo2TextView.setTextColor(getResources().getColor(android.R.color.holo_blue_dark));
-                                Log.d(TAG, "SpO2 TextView updated with non-JSON text");
+                                spo2TextView.setText(payload);
+                                spo2StatusTextView.setText("Unknown");
+                                spo2StatusTextView.setTextColor(Color.BLUE);
+                                spo2Card.setCardBackgroundColor(Color.WHITE);
                             }
                         } catch (Exception e) {
                             Log.e(TAG, "Error updating SpO2 TextView with text", e);
@@ -588,22 +762,19 @@ public class MainActivity extends AppCompatActivity {
 
             Log.d(TAG, "SpO2 parsed: " + spo2);
 
+            // Save to database
+            saveHealthParameter("spo2", spo2);
+
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     try {
-                        Log.d(TAG, "Updating SpO2 TextView to: " + spo2);
                         // Update SpO2 text
-                        spo2TextView.setText(String.format("SpO2: %d%%", spo2));
+                        spo2TextView.setText(String.format("%d%%", spo2));
 
-                        // Check for abnormal values (using default threshold)
-                        if (spo2 < 90) {
-                            spo2TextView.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
-                        } else {
-                            spo2TextView.setTextColor(getResources().getColor(android.R.color.black));
-                        }
+                        // Update status and card color
+                        updateSpO2Status(spo2);
 
-                        Log.d(TAG, "SpO2 TextView updated successfully");
                     } catch (Exception e) {
                         Log.e(TAG, "Error updating SpO2 TextView", e);
                     }
@@ -617,9 +788,10 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void run() {
                     try {
-                        spo2TextView.setText("SpO2: Invalid format");
-                        spo2TextView.setTextColor(getResources().getColor(android.R.color.holo_orange_dark));
-                        Log.d(TAG, "SpO2 updated to show error");
+                        spo2TextView.setText("Invalid format");
+                        spo2StatusTextView.setText("Error");
+                        spo2StatusTextView.setTextColor(Color.RED);
+                        spo2Card.setCardBackgroundColor(Color.parseColor("#FFCCCC"));
                     } catch (Exception e) {
                         Log.e(TAG, "Error updating SpO2 for error condition", e);
                     }
@@ -627,6 +799,26 @@ public class MainActivity extends AppCompatActivity {
             });
         } catch (Exception e) {
             Log.e(TAG, "Unexpected error in updateSpO2", e);
+        }
+    }
+
+    private void updateSpO2Status(int spo2) {
+        // Normal SpO2: 95-100%
+        if (spo2 < 90) {
+            // Hypoxemia (severe)
+            spo2StatusTextView.setText("Severe Hypoxemia");
+            spo2StatusTextView.setTextColor(Color.parseColor("#D50000"));  // Dark red
+            spo2Card.setCardBackgroundColor(Color.parseColor("#FFCDD2"));  // Light red
+        } else if (spo2 < 95) {
+            // Mild Hypoxemia
+            spo2StatusTextView.setText("Mild Hypoxemia");
+            spo2StatusTextView.setTextColor(Color.parseColor("#FF9800"));  // Orange
+            spo2Card.setCardBackgroundColor(Color.parseColor("#FFF3E0"));  // Very light orange
+        } else {
+            // Normal
+            spo2StatusTextView.setText("Normal");
+            spo2StatusTextView.setTextColor(Color.parseColor("#4CAF50"));  // Green
+            spo2Card.setCardBackgroundColor(Color.WHITE);
         }
     }
 
@@ -642,9 +834,8 @@ public class MainActivity extends AppCompatActivity {
                     public void run() {
                         try {
                             // Handle as plain text for debugging purposes
-                            deviceStatusTextView.setText("Device Status: " + payload);
-                            deviceStatusTextView.setTextColor(getResources().getColor(android.R.color.holo_blue_dark));
-                            Log.d(TAG, "Device status TextView updated with non-JSON text");
+                            deviceStatusTextView.setText(payload);
+                            deviceStatusTextView.setTextColor(Color.BLUE);
                         } catch (Exception e) {
                             Log.e(TAG, "Error updating device status TextView with text", e);
                         }
@@ -663,16 +854,13 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void run() {
                     try {
-                        Log.d(TAG, "Updating device status TextView to: " + (isWorn ? "worn" : "not worn"));
                         if (isWorn) {
-                            deviceStatusTextView.setText("Device Status: Worn");
-                            deviceStatusTextView.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+                            deviceStatusTextView.setText("Device is being worn");
+                            deviceStatusTextView.setTextColor(Color.parseColor("#4CAF50"));  // Green
                         } else {
-                            deviceStatusTextView.setText("Device Status: Not Worn");
-                            deviceStatusTextView.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+                            deviceStatusTextView.setText("Device is NOT worn");
+                            deviceStatusTextView.setTextColor(Color.parseColor("#F44336"));  // Red
                         }
-
-                        Log.d(TAG, "Device status TextView updated successfully");
                     } catch (Exception e) {
                         Log.e(TAG, "Error updating device status TextView", e);
                     }
@@ -682,14 +870,12 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "Error parsing device status data: " + e.getMessage() + ", payload: " + payload, e);
 
             // Handle error by showing a warning in the UI
-            final String errorMessage = payload;
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     try {
                         deviceStatusTextView.setText("Status: Invalid format");
-                        deviceStatusTextView.setTextColor(getResources().getColor(android.R.color.holo_orange_dark));
-                        Log.d(TAG, "Device status updated to show error");
+                        deviceStatusTextView.setTextColor(Color.parseColor("#FF9800"));  // Orange
                     } catch (Exception e) {
                         Log.e(TAG, "Error updating device status for error condition", e);
                     }
@@ -700,9 +886,131 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void updateLocation(String payload) {
+        try {
+            Log.d(TAG, "updateLocation called with payload: " + payload);
+
+            // Check if payload is valid JSON
+            if (!isValidJson(payload)) {
+                Log.w(TAG, "Received non-JSON payload for location: " + payload);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            locationTextView.setText("Location: " + payload);
+                            locationTextView.setTextColor(Color.BLUE);
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error updating location TextView with text", e);
+                        }
+                    }
+                });
+                return;
+            }
+
+            // Process as JSON
+            JSONObject json = new JSONObject(payload);
+            final double latitude = json.getDouble("lat");
+            final double longitude = json.getDouble("lng");
+
+            Log.d(TAG, "Location parsed: " + latitude + ", " + longitude);
+
+            // Update text display on UI thread
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    locationTextView.setText(String.format("Location: %.6f, %.6f", latitude, longitude));
+                }
+            });
+
+            // Update the current location field
+            currentLocation = new LatLng(latitude, longitude);
+
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        locationTextView.setText(String.format("Location: %.6f, %.6f", latitude, longitude));
+
+                        // Update map if it's ready
+                        if (isMapReady && googleMap != null) {
+                            updateMapLocation(latitude, longitude);
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error updating location TextView", e);
+                    }
+                }
+            });
+        } catch (JSONException e) {
+            Log.e(TAG, "Error parsing location data: " + e.getMessage() + ", payload: " + payload, e);
+
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        locationTextView.setText("Location: Invalid format");
+                        locationTextView.setTextColor(Color.parseColor("#FF9800"));  // Orange
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error updating location for error condition", e);
+                    }
+                }
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "Unexpected error in updateLocation", e);
+        }
+    }
+
+    private void updateMapLocation(final double latitude, final double longitude) {
+        // Since map updates must happen on the UI thread, make sure we use runOnUiThread
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    if (googleMap == null) {
+                        Log.e(TAG, "googleMap is null, cannot update map location");
+                        return;
+                    }
+
+                    Log.d(TAG, "Updating map with location: " + latitude + ", " + longitude);
+
+                    // Create a LatLng object from the coordinates
+                    LatLng location = new LatLng(latitude, longitude);
+
+                    // Clear previous markers
+                    googleMap.clear();
+
+                    // Add a marker for this location
+                    googleMap.addMarker(new MarkerOptions()
+                            .position(location)
+                            .title("Patient's Location"));
+
+                    // Move the camera to the location with a zoom level
+                    googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 15f));
+
+                    Log.d(TAG, "Map location updated successfully");
+                } catch (Exception e) {
+                    Log.e(TAG, "Error updating map location: " + e.getMessage(), e);
+                }
+            }
+        });
+    }
+
     private void handleMedicationConfirmation(String payload) {
         try {
             Log.d(TAG, "handleMedicationConfirmation called with payload: " + payload);
+
+            // Check if payload is valid JSON
+            if (!isValidJson(payload)) {
+                Log.w(TAG, "Received non-JSON payload for medication confirmation: " + payload);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(MainActivity.this, "Medication update: " + payload, Toast.LENGTH_LONG).show();
+                    }
+                });
+                return;
+            }
+
+            // Process as JSON
             JSONObject json = new JSONObject(payload);
             final String medicationName = json.getString("medication");
             final boolean taken = json.getBoolean("taken");
@@ -714,7 +1022,6 @@ public class MainActivity extends AppCompatActivity {
                 public void run() {
                     try {
                         String message = medicationName + (taken ? " taken" : " missed");
-                        Log.d(TAG, "Showing medication toast: " + message);
                         Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show();
                     } catch (Exception e) {
                         Log.e(TAG, "Error showing medication toast", e);
@@ -728,32 +1035,61 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void updateLocation(String payload) {
+    private void saveHealthParameter(String type, double value) {
         try {
-            Log.d(TAG, "updateLocation called with payload: " + payload);
-            JSONObject json = new JSONObject(payload);
-            final double latitude = json.getDouble("lat");
-            final double longitude = json.getDouble("lng");
+            // Create a new parameter object
+            HealthParameter parameter = new HealthParameter(type, value, System.currentTimeMillis());
 
-            Log.d(TAG, "Location parsed: " + latitude + ", " + longitude);
+            // Insert into database
+            database.healthParameterDao().insert(parameter);
 
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        Log.d(TAG, "Updating location TextView to: " + latitude + ", " + longitude);
-                        locationTextView.setText(String.format("Location: %.6f, %.6f", latitude, longitude));
-                        Log.d(TAG, "Location TextView updated successfully");
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error updating location TextView", e);
-                    }
-                }
-            });
-        } catch (JSONException e) {
-            Log.e(TAG, "Error parsing location data: " + e.getMessage() + ", payload: " + payload, e);
+            // Keep only the latest 10 entries for this type
+            database.healthParameterDao().keepLatest10ByType(type);
+
+            Log.d(TAG, "Saved " + type + " value: " + value + " to database");
         } catch (Exception e) {
-            Log.e(TAG, "Unexpected error in updateLocation", e);
+            Log.e(TAG, "Error saving health parameter to database", e);
         }
+    }
+
+    @Override
+    public void onMapReady(@NonNull GoogleMap map) {
+        googleMap = map;
+        isMapReady = true;
+
+        // Default location - set to a default if no location has been received yet
+        LatLng defaultLocation = new LatLng(17.4431, 78.3496);  // Example: Hyderabad, India
+
+        // Use current location if available, otherwise use default
+        LatLng locationToShow = currentLocation != null ? currentLocation : defaultLocation;
+
+        Log.d(TAG, "Initial map location: " + locationToShow.latitude + ", " + locationToShow.longitude);
+
+        // Add a marker and move the camera
+        googleMap.addMarker(new MarkerOptions()
+                .position(locationToShow)
+                .title("Patient's Location"));
+
+        googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(locationToShow, 15f));
+
+        Log.d(TAG, "Initial map setup complete");
+
+        if (currentLocation != null) {
+            Log.d(TAG, "Applying queued location update");
+            updateMapLocation(currentLocation.latitude, currentLocation.longitude);
+        }
+    }
+
+    @Override
+    public void onDeleteClick(Medication medication) {
+        // Delete medication from database
+        database.medicationDao().delete(medication);
+
+        // Refresh medication list
+        loadMedications();
+
+        // Show confirmation
+        Toast.makeText(this, "Medication deleted", Toast.LENGTH_SHORT).show();
     }
 
     @Override

@@ -48,4 +48,17 @@ dependencies {
 
     // Add the AndroidX LocalBroadcastManager dependency
     implementation(libs.localbroadcastmanager)
+
+    // Google Maps dependencies
+    implementation(libs.play.services.maps)
+    implementation(libs.play.services.location)
+
+    // Room database dependencies for local storage
+    implementation(libs.room.runtime)
+    annotationProcessor(libs.room.compiler)
+
+    // RecyclerView
+    implementation(libs.recyclerview)
+
+    implementation(libs.fragment)
 }
