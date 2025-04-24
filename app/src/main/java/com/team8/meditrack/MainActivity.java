@@ -248,6 +248,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
     }
 
+    // Make sure this is in your processMessage method:
     private void processMessage(String topic, String payload) {
         Log.d(TAG, "Processing message on topic: " + topic + " with payload: " + payload);
 
@@ -890,108 +891,91 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         try {
             Log.d(TAG, "updateLocation called with payload: " + payload);
 
-            // Check if payload is valid JSON
-            if (!isValidJson(payload)) {
-                Log.w(TAG, "Received non-JSON payload for location: " + payload);
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            locationTextView.setText("Location: " + payload);
-                            locationTextView.setTextColor(Color.BLUE);
-                        } catch (Exception e) {
-                            Log.e(TAG, "Error updating location TextView with text", e);
-                        }
+            double latitude;
+            double longitude;
+
+            // MQTT is sending comma-separated string values instead of JSON
+            if (payload.contains(",")) {
+                // Split the comma-separated string
+                String[] coordinates = payload.split(",");
+                if (coordinates.length >= 2) {
+                    try {
+                        latitude = Double.parseDouble(coordinates[0].trim());
+                        longitude = Double.parseDouble(coordinates[1].trim());
+                        Log.d(TAG, "Location parsed from CSV format: " + latitude + ", " + longitude);
+                    } catch (NumberFormatException e) {
+                        Log.e(TAG, "Error parsing location coordinates from string: " + payload, e);
+                        return;
                     }
-                });
+                } else {
+                    Log.e(TAG, "Invalid location format, expected comma-separated values: " + payload);
+                    return;
+                }
+            }
+            // If it's JSON, handle it as before
+            else if (isValidJson(payload)) {
+                JSONObject json = new JSONObject(payload);
+                latitude = json.getDouble("lat");
+                longitude = json.getDouble("lng");
+                Log.d(TAG, "Location parsed from JSON: " + latitude + ", " + longitude);
+            }
+            // If neither format is detected
+            else {
+                Log.e(TAG, "Unrecognized location format: " + payload);
                 return;
             }
-
-            // Process as JSON
-            JSONObject json = new JSONObject(payload);
-            final double latitude = json.getDouble("lat");
-            final double longitude = json.getDouble("lng");
-
-            Log.d(TAG, "Location parsed: " + latitude + ", " + longitude);
-
-            // Update text display on UI thread
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    locationTextView.setText(String.format("Location: %.6f, %.6f", latitude, longitude));
-                }
-            });
 
             // Update the current location field
             currentLocation = new LatLng(latitude, longitude);
 
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        locationTextView.setText(String.format("Location: %.6f, %.6f", latitude, longitude));
+            // Update location text display on UI thread
+            final double finalLatitude = latitude;
+            final double finalLongitude = longitude;
+            runOnUiThread(() -> {
+                locationTextView.setText(String.format("Location: %.6f, %.6f", finalLatitude, finalLongitude));
+                locationTextView.setTextColor(Color.BLUE);
 
-                        // Update map if it's ready
-                        if (isMapReady && googleMap != null) {
-                            updateMapLocation(latitude, longitude);
-                        }
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error updating location TextView", e);
-                    }
-                }
-            });
-        } catch (JSONException e) {
-            Log.e(TAG, "Error parsing location data: " + e.getMessage() + ", payload: " + payload, e);
-
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        locationTextView.setText("Location: Invalid format");
-                        locationTextView.setTextColor(Color.parseColor("#FF9800"));  // Orange
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error updating location for error condition", e);
-                    }
+                // Update map if it's ready
+                if (isMapReady && googleMap != null) {
+                    updateMapLocation(finalLatitude, finalLongitude);
+                } else {
+                    Log.w(TAG, "Map not ready, location update stored for later. isMapReady=" +
+                            isMapReady + ", googleMap=" + (googleMap != null ? "not null" : "null"));
                 }
             });
         } catch (Exception e) {
-            Log.e(TAG, "Unexpected error in updateLocation", e);
+            Log.e(TAG, "Unexpected error in updateLocation: " + e.getMessage(), e);
         }
     }
 
-    private void updateMapLocation(final double latitude, final double longitude) {
-        // Since map updates must happen on the UI thread, make sure we use runOnUiThread
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    if (googleMap == null) {
-                        Log.e(TAG, "googleMap is null, cannot update map location");
-                        return;
-                    }
+    private void updateMapLocation(double latitude, double longitude) {
+        // Must run on UI thread, but we're already in runOnUiThread from the calling method
+        try {
+            Log.d(TAG, "updateMapLocation called with lat=" + latitude + ", lng=" + longitude);
 
-                    Log.d(TAG, "Updating map with location: " + latitude + ", " + longitude);
-
-                    // Create a LatLng object from the coordinates
-                    LatLng location = new LatLng(latitude, longitude);
-
-                    // Clear previous markers
-                    googleMap.clear();
-
-                    // Add a marker for this location
-                    googleMap.addMarker(new MarkerOptions()
-                            .position(location)
-                            .title("Patient's Location"));
-
-                    // Move the camera to the location with a zoom level
-                    googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 15f));
-
-                    Log.d(TAG, "Map location updated successfully");
-                } catch (Exception e) {
-                    Log.e(TAG, "Error updating map location: " + e.getMessage(), e);
-                }
+            if (googleMap == null) {
+                Log.e(TAG, "googleMap is null, cannot update map");
+                return;
             }
-        });
+
+            // Create a LatLng object from the coordinates
+            LatLng location = new LatLng(latitude, longitude);
+
+            // Clear previous markers
+            googleMap.clear();
+
+            // Add a marker for this location
+            googleMap.addMarker(new MarkerOptions()
+                    .position(location)
+                    .title("Patient's Location"));
+
+            // Move the camera to the location with a zoom level
+            googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 15f));
+
+            Log.d(TAG, "Map marker and camera updated successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Error updating map location: " + e.getMessage(), e);
+        }
     }
 
     private void handleMedicationConfirmation(String payload) {
@@ -1052,18 +1036,18 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
     }
 
+
     @Override
     public void onMapReady(@NonNull GoogleMap map) {
+        Log.d(TAG, "onMapReady called");
         googleMap = map;
         isMapReady = true;
 
         // Default location - set to a default if no location has been received yet
-        LatLng defaultLocation = new LatLng(17.4431, 78.3496);  // Example: Hyderabad, India
+        LatLng defaultLocation = new LatLng(17.4431, 78.3496);  // Example: Hyderabad
 
         // Use current location if available, otherwise use default
         LatLng locationToShow = currentLocation != null ? currentLocation : defaultLocation;
-
-        Log.d(TAG, "Initial map location: " + locationToShow.latitude + ", " + locationToShow.longitude);
 
         // Add a marker and move the camera
         googleMap.addMarker(new MarkerOptions()
@@ -1073,11 +1057,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(locationToShow, 15f));
 
         Log.d(TAG, "Initial map setup complete");
-
-        if (currentLocation != null) {
-            Log.d(TAG, "Applying queued location update");
-            updateMapLocation(currentLocation.latitude, currentLocation.longitude);
-        }
     }
 
     @Override
