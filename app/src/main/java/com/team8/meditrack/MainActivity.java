@@ -79,6 +79,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private LatLng currentLocation;
     private boolean isMapReady = false;
 
+    // Add these with your other UI element declarations
+    private TextView medicationStatusTextView;
+    private TextView lastUpdateTextView;
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -126,6 +131,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         tempStatusTextView = findViewById(R.id.textViewTemperatureStatus);
         heartRateStatusTextView = findViewById(R.id.textViewHeartRateStatus);
         spo2StatusTextView = findViewById(R.id.textViewSpO2Status);
+
+
+        // Initialize them in onCreate() after setContentView()
+        medicationStatusTextView = findViewById(R.id.textViewMedicationStatus);
+        lastUpdateTextView = findViewById(R.id.textViewLastUpdate);
 
         // Initialize cards
         temperatureCard = findViewById(R.id.temperatureCard);
@@ -984,13 +994,33 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         try {
             Log.d(TAG, "handleMedicationConfirmation called with payload: " + payload);
 
+            // Get current timestamp for the update
+            SimpleDateFormat sdf = new SimpleDateFormat("MMM dd, yyyy HH:mm:ss", Locale.getDefault());
+            final String timestamp = sdf.format(new Date());
+
+            // Check if payload is simply "1" (indicating medication taken)
+            if (payload != null && payload.trim().equals("1")) {
+                Log.d(TAG, "Received simple confirmation that medication was taken");
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        medicationStatusTextView.setText("Medication has been taken!");
+                        medicationStatusTextView.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+                        lastUpdateTextView.setText("Last updated: " + timestamp);
+                    }
+                });
+                return;
+            }
+
             // Check if payload is valid JSON
             if (!isValidJson(payload)) {
                 Log.w(TAG, "Received non-JSON payload for medication confirmation: " + payload);
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        Toast.makeText(MainActivity.this, "Medication update: " + payload, Toast.LENGTH_LONG).show();
+                        medicationStatusTextView.setText("Medication update: " + payload);
+                        medicationStatusTextView.setTextColor(getResources().getColor(android.R.color.holo_blue_dark));
+                        lastUpdateTextView.setText("Last updated: " + timestamp);
                     }
                 });
                 return;
@@ -998,7 +1028,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
             // Process as JSON
             JSONObject json = new JSONObject(payload);
-            final String medicationName = json.getString("medication");
+            final String medicationName = json.optString("medication", "Medication");
             final boolean taken = json.getBoolean("taken");
 
             Log.d(TAG, "Medication confirmation parsed: " + medicationName + " " + (taken ? "taken" : "missed"));
@@ -1007,10 +1037,19 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 @Override
                 public void run() {
                     try {
-                        String message = medicationName + (taken ? " taken" : " missed");
-                        Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show();
+                        String message = medicationName + (taken ? " has been taken" : " was missed");
+                        medicationStatusTextView.setText(message);
+
+                        // Set appropriate color based on status
+                        if (taken) {
+                            medicationStatusTextView.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+                        } else {
+                            medicationStatusTextView.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+                        }
+
+                        lastUpdateTextView.setText("Last updated: " + timestamp);
                     } catch (Exception e) {
-                        Log.e(TAG, "Error showing medication toast", e);
+                        Log.e(TAG, "Error updating medication status", e);
                     }
                 }
             });
