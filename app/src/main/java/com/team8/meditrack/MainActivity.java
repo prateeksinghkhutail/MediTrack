@@ -32,6 +32,9 @@ import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, MedicationAdapter.OnMedicationClickListener {
 
@@ -39,7 +42,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     // MQTT
     private MqttHandler mqttHandler;
-    private String brokerIp = "192.168.113.182"; // Default IP
+    private String brokerIp = "192.168.20.182"; // Default IP
 
     // UI elements - Health parameters
     private TextView tempTextView;
@@ -120,7 +123,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         heartRateTextView = findViewById(R.id.textViewHeartRate);
         spo2TextView = findViewById(R.id.textViewSpO2);
         deviceStatusTextView = findViewById(R.id.textViewDeviceStatus);
-        locationTextView = findViewById(R.id.textViewLocation);
         tempStatusTextView = findViewById(R.id.textViewTemperatureStatus);
         heartRateStatusTextView = findViewById(R.id.textViewHeartRateStatus);
         spo2StatusTextView = findViewById(R.id.textViewSpO2Status);
@@ -181,7 +183,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     "meditrack/heartrate",
                     "meditrack/spo2",
                     "meditrack/device_status",
-                    "meditrack/medication_confirm",
+                    "meditrack/meds_taken",
                     "meditrack/location"
             };
 
@@ -267,7 +269,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 case "meditrack/device_status":
                     updateDeviceStatus(payload);
                     break;
-                case "meditrack/medication_confirm":
+                case "meditrack/meds_taken":
                     handleMedicationConfirmation(payload);
                     break;
                 case "meditrack/location":
@@ -394,7 +396,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private void publishTestLocation() {
         // Create a simple test message for location
-        String testMessage = "{\"lat\": 17.4431, \"lng\": 78.3496}";  // Example: Hyderabad, India
+        String testMessage = "{\"lat\": 28.364465602860108, \"lng\": 75.58975557871955}";  // Example: Hyderabad, India
         mqttHandler.publishMessage("meditrack/location", testMessage);
         Toast.makeText(MainActivity.this, "Test location published", Toast.LENGTH_SHORT).show();
         Log.d(TAG, "Test message published to meditrack/location: " + testMessage);
@@ -408,8 +410,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         try {
             // Create an emergency alert message
-            String alertMessage = "{\"alert\": true, \"message\": \"Emergency alert from caregiver app!\"}";
-            mqttHandler.publishMessage("meditrack/emergency_alert", alertMessage);
+            String alertMessage = "1";
+            mqttHandler.publishMessage("meditrack/alert", alertMessage);
 
             Toast.makeText(this, "Emergency alert sent!", Toast.LENGTH_LONG).show();
             Log.d(TAG, "Emergency alert sent: " + alertMessage);
@@ -1044,7 +1046,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         isMapReady = true;
 
         // Default location - set to a default if no location has been received yet
-        LatLng defaultLocation = new LatLng(17.4431, 78.3496);  // Example: Hyderabad
+        LatLng defaultLocation = new LatLng(28.364465602860108, 75.58975557871955);  // Example: Hyderabad
 
         // Use current location if available, otherwise use default
         LatLng locationToShow = currentLocation != null ? currentLocation : defaultLocation;

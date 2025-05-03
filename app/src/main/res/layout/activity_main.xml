@@ -297,13 +297,7 @@
                     android:textStyle="bold"
                     android:layout_marginBottom="12dp"/>
 
-                <TextView
-                    android:id="@+id/textViewLocation"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Location: Unknown"
-                    android:textSize="16sp"
-                    android:layout_marginBottom="8dp"/>
+
 
                 <FrameLayout
                     android:layout_width="match_parent"
@@ -318,7 +312,45 @@
                 </FrameLayout>
             </LinearLayout>
         </androidx.cardview.widget.CardView>
+        <!-- Medication Status Card -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="8dp"
+            app:cardCornerRadius="8dp"
+            app:cardElevation="4dp">
 
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Medication Status"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="8dp"/>
+
+                <TextView
+                    android:id="@+id/textViewMedicationStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="No medication information available"
+                    android:textSize="16sp"/>
+
+                <TextView
+                    android:id="@+id/textViewLastUpdate"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    android:textSize="12sp"
+                    android:textStyle="italic"
+                    android:layout_marginTop="4dp"/>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
         <!-- Medication Schedule Card -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
