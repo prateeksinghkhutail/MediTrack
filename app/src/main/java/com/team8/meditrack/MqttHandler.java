@@ -111,7 +111,10 @@ public class MqttHandler {
 
         for (String topic : subscriptionTopics) {
             try {
-                mqttClient.subscribe(topic, 0);
+                if (topic.equals("meditrack/meds_taken"))
+                    mqttClient.subscribe(topic, 1);
+                else
+                    mqttClient.subscribe(topic, 0);
                 Log.d(TAG, "Successfully subscribed to topic: " + topic);
             } catch (MqttException ex) {
                 Log.e(TAG, "Error subscribing to topic: " + topic + ", reason code: " + ex.getReasonCode(), ex);
@@ -130,7 +133,7 @@ public class MqttHandler {
         try {
             MqttMessage message = new MqttMessage();
             message.setPayload(payload.getBytes());
-            message.setQos(0);
+            message.setQos(1);
 
             mqttClient.publish(topic, message);
             Log.d(TAG, "Message published to topic: " + topic);
