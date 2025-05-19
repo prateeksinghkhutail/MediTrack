@@ -43,7 +43,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     // MQTT
     private MqttHandler mqttHandler;
-    private String brokerIp = "192.168.20.182"; // Default IP
+    private String brokerIp = "192.168.249  .182"; // Default IP
 
     // UI elements - Health parameters
     private TextView tempTextView;
